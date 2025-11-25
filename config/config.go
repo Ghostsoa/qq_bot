@@ -7,8 +7,10 @@ import (
 
 // Config 总配置
 type Config struct {
-	NapCat *NapCatConfig `json:"napcat"`
-	AI     *AIConfig     `json:"ai"`
+	NapCat     *NapCatConfig   `json:"napcat"`
+	AI         *AIConfig       `json:"ai"`
+	Database   *DatabaseConfig `json:"database"`
+	AllowedQQs []int64         `json:"allowed_qqs"` // 允许使用的QQ号白名单
 }
 
 // NapCatConfig NapCat连接配置
@@ -28,6 +30,16 @@ type AIConfig struct {
 	MaxTokens    int     `json:"max_tokens"`    // 最大token数
 	Temperature  float64 `json:"temperature"`   // 温度参数
 	SystemPrompt string  `json:"system_prompt"` // 系统提示词
+}
+
+// DatabaseConfig 数据库配置
+type DatabaseConfig struct {
+	Host     string `json:"host"`     // 数据库主机
+	Port     int    `json:"port"`     // 数据库端口
+	User     string `json:"user"`     // 数据库用户名
+	Password string `json:"password"` // 数据库密码
+	DBName   string `json:"dbname"`   // 数据库名
+	SSLMode  string `json:"sslmode"`  // SSL模式
 }
 
 var globalConfig *Config
@@ -64,13 +76,22 @@ func GetDefault() *Config {
 			MessageFormat:     "array",
 		},
 		AI: &AIConfig{
-			BaseURL:      "https://api.openai.com/v1",
-			APIKey:       "",
-			Model:        "gpt-3.5-turbo",
+			BaseURL:      "https://api.deepseek.com",
+			APIKey:       "sk-593692de98614e81baf15878043c30c9",
+			Model:        "deepseek-chat",
 			MaxTokens:    2000,
 			Temperature:  0.7,
-			SystemPrompt: "你是一个友好的AI助手。",
+			SystemPrompt: "你是一个友好的AI助手。请用简洁、有用的方式回答问题。",
 		},
+		Database: &DatabaseConfig{
+			Host:     "localhost",
+			Port:     5432,
+			User:     "qq_bot",
+			Password: "your_password",
+			DBName:   "qq_bot_db",
+			SSLMode:  "disable",
+		},
+		AllowedQQs: []int64{}, // 默认空，需要手动添加QQ号
 	}
 }
 

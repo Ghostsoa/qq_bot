@@ -9,6 +9,7 @@ import (
 	"qq_bot/protocol"
 	"qq_bot/service/ai"
 	"qq_bot/service/message"
+	"qq_bot/storage"
 	"qq_bot/utils"
 	"syscall"
 )
@@ -18,6 +19,12 @@ func main() {
 
 	// 加载配置
 	cfg := loadConfig()
+
+	// 初始化数据库
+	if err := storage.InitDatabase(cfg.Database); err != nil {
+		utils.Error("数据库初始化失败: %v", err)
+		os.Exit(1)
+	}
 
 	// 创建AI服务
 	aiService := ai.NewOpenAIService(cfg.AI)
@@ -37,7 +44,7 @@ func main() {
 	api := protocol.NewAPI(wsClient.SendMessage)
 
 	// 创建消息服务
-	msgService := message.NewMessageService(api, aiService)
+	msgService := message.NewMessageService(api, aiService, cfg.AI.SystemPrompt, cfg.AllowedQQs)
 
 	// 注册事件处理器
 	dispatcher.OnMessage(msgService.HandleMessage)
