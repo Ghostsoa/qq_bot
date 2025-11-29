@@ -82,3 +82,8 @@ func (s *HistoryService) ClearUserHistory(qqId int64, groupId *int64) error {
 	}
 	return query.Delete(&storage.ChatHistory{}).Error
 }
+
+// ClearAllHistory 清空所有聊天记录
+func (s *HistoryService) ClearAllHistory() error {
+	return s.db.Exec("TRUNCATE TABLE chat_histories").Error
+}

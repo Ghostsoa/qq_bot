@@ -9,6 +9,7 @@ import (
 	"qq_bot/protocol"
 	"qq_bot/service/ai"
 	"qq_bot/service/message"
+	"qq_bot/service/relationship"
 	"qq_bot/storage"
 	"qq_bot/utils"
 	"syscall"
@@ -27,8 +28,12 @@ func main() {
 	}
 
 	// 创建AI服务
-	aiService := ai.NewOpenAIService(cfg.AI)
+	openaiService := ai.NewOpenAIService(cfg.AI)
 	utils.Info("AI服务初始化完成: Model=%s", cfg.AI.Model)
+
+	// 创建关系评估服务
+	relationshipService := relationship.NewService(openaiService.GetClient(), storage.GetDB())
+	utils.Info("关系评估服务初始化完成")
 
 	// 创建事件分发器
 	dispatcher := event.NewDispatcher()
@@ -44,7 +49,7 @@ func main() {
 	api := protocol.NewAPI(wsClient.SendMessage)
 
 	// 创建消息服务
-	msgService := message.NewMessageService(api, aiService, cfg.AI.SystemPrompt, cfg.AllowedQQs)
+	msgService := message.NewMessageService(api, openaiService, relationshipService, cfg.AllowedQQs)
 
 	// 注册事件处理器
 	dispatcher.OnMessage(msgService.HandleMessage)

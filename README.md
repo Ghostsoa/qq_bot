@@ -28,30 +28,40 @@ go mod tidy
 
 ### 2. 配置
 
-首次运行会自动生成 `config.json`，需要修改以下配置：
+首次运行会自动生成 `config.json` 和 `system_prompt.txt`，需要修改以下配置：
 
 - **NapCat 配置**：已预设为 `127.0.0.1:3001`
 - **AI 配置**：修改 `api_key` 和 `base_url`
+- **系统提示词**：编辑 `system_prompt.txt` 文件（支持直接换行，方便编辑）
 
-配置示例：
+配置示例 (`config.json`)：
 ```json
 {
   "napcat": {
     "host": "127.0.0.1",
     "port": 3001,
-    "token": "X9?Hl=AJnpjWM(bw",
+    "token": "X9?Hl=AJnpjWM(bw)",
     "heartbeat_interval": 30000,
     "message_format": "array"
   },
   "ai": {
-    "base_url": "https://api.openai.com/v1",
+    "base_url": "https://api.deepseek.com",
     "api_key": "your_api_key_here",
-    "model": "gpt-3.5-turbo",
-    "max_tokens": 2000,
-    "temperature": 0.7,
-    "system_prompt": "你是一个友好的AI助手。"
+    "model": "deepseek-chat",
+    "max_tokens": 500,
+    "temperature": 0.95
   }
 }
+```
+
+系统提示词文件 (`system_prompt.txt`)：
+```
+你是一个温柔体贴的女性朋友。
+
+聊天规则：
+1. 像真实的女生一样聊天，语气自然、亲切、有情感
+2. 回复要简短，模拟真人聊天习惯
+3. 使用 </> 分隔多段消息，例如："好呀</>我也想你了"
 ```
 
 ### 3. 运行
@@ -70,13 +80,17 @@ go run main.go
 
 ### AI 对话
 - ✅ 支持 OpenAI 格式的大模型
-- ✅ 可自定义系统提示词
+- ✅ 可自定义系统提示词（独立 txt 文件，方便编辑）
 - ✅ 支持温度、最大 Token 等参数
+- ✅ **消息分段发送**：AI 使用 `</>` 分隔多段消息，模拟真人聊天节奏
+- ✅ **打字延迟模拟**：根据消息长度智能延迟（1-3秒）
+- ✅ **上下文记忆**：基于数据库存储对话历史
 
 ### 命令系统
 - `/help` - 显示帮助信息
 - `/ping` - 测试连接
 - `/about` - 关于本机器人
+- `/clear` - 清空所有对话历史
 
 ## 扩展开发
 

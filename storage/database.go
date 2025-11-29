@@ -29,7 +29,7 @@ func InitDatabase(cfg *config.DatabaseConfig) error {
 	}
 
 	// 自动迁移表结构
-	if err := DB.AutoMigrate(&ChatHistory{}); err != nil {
+	if err := DB.AutoMigrate(&ChatHistory{}, &UserRelationship{}); err != nil {
 		return fmt.Errorf("数据库迁移失败: %v", err)
 	}
 

@@ -59,3 +59,8 @@ func (s *OpenAIService) ChatWithHistory(messages []openai.ChatCompletionMessage)
 
 	return reply, nil
 }
+
+// GetClient 获取OpenAI客户端（用于其他服务调用）
+func (s *OpenAIService) GetClient() *openai.Client {
+	return s.client
+}

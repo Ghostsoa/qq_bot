@@ -5,30 +5,32 @@ import (
 	"qq_bot/protocol"
 	"qq_bot/service/ai"
 	"qq_bot/service/history"
+	"qq_bot/service/relationship"
 	"qq_bot/service/user"
 	"qq_bot/utils"
 	"strings"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
 )
 
 // MessageService 消息服务
 type MessageService struct {
-	api            *protocol.API
-	aiService      ai.AIService
-	userService    *user.UserService
-	historyService *history.HistoryService
-	systemPrompt   string
+	api                 *protocol.API
+	aiService           ai.AIService
+	userService         *user.UserService
+	historyService      *history.HistoryService
+	relationshipService *relationship.Service
 }
 
 // NewMessageService 创建消息服务
-func NewMessageService(api *protocol.API, aiService ai.AIService, systemPrompt string, allowedQQs []int64) *MessageService {
+func NewMessageService(api *protocol.API, aiService ai.AIService, relationshipService *relationship.Service, allowedQQs []int64) *MessageService {
 	return &MessageService{
-		api:            api,
-		aiService:      aiService,
-		userService:    user.NewUserService(allowedQQs),
-		historyService: history.NewHistoryService(),
-		systemPrompt:   systemPrompt,
+		api:                 api,
+		aiService:           aiService,
+		userService:         user.NewUserService(allowedQQs),
+		historyService:      history.NewHistoryService(),
+		relationshipService: relationshipService,
 	}
 }
 
@@ -101,19 +103,14 @@ func (s *MessageService) handleHelp(event *protocol.Event) {
 
 // handleClearHistory 清空历史
 func (s *MessageService) handleClearHistory(event *protocol.Event) {
-	var groupId *int64
-	if event.MessageType == "group" {
-		groupId = &event.GroupID
-	}
-
-	err := s.historyService.ClearUserHistory(event.UserID, groupId)
+	err := s.historyService.ClearAllHistory()
 	if err != nil {
 		utils.Error("清空历史失败: %v", err)
 		s.sendReply(event, "清空历史失败")
 		return
 	}
 
-	s.sendReply(event, "已清空您的对话历史")
+	s.sendReply(event, "已清空所有对话历史")
 }
 
 // handleAIChat 处理AI对话
@@ -134,8 +131,15 @@ func (s *MessageService) handleAIChat(event *protocol.Event, userMessage string)
 		utils.Error("保存用户消息失败: %v", err)
 	}
 
+	// 获取动态系统提示词（基于关系阶段）
+	systemPrompt, err := s.relationshipService.GetStagePrompt(event.UserID, groupId)
+	if err != nil {
+		utils.Error("获取阶段提示词失败: %v", err)
+		systemPrompt = "你是一个友好的AI助手。" // 降级默认值
+	}
+
 	// 获取历史记录
-	historyMessages, err := s.historyService.GetRecentHistory(event.UserID, groupId, 20) // 获取最近20条
+	historyMessages, err := s.historyService.GetRecentHistory(event.UserID, groupId, 200) // 获取最近200条（100轮对话）
 	if err != nil {
 		utils.Error("获取历史记录失败: %v", err)
 	}
@@ -146,7 +150,7 @@ func (s *MessageService) handleAIChat(event *protocol.Event, userMessage string)
 	// 添加系统提示词
 	messages = append(messages, openai.ChatCompletionMessage{
 		Role:    "system",
-		Content: s.systemPrompt,
+		Content: systemPrompt,
 	})
 
 	// 添加历史记录
@@ -166,12 +170,65 @@ func (s *MessageService) handleAIChat(event *protocol.Event, userMessage string)
 		utils.Error("保存AI回复失败: %v", err)
 	}
 
+	// 评估对话并更新关系
+	go func() {
+		evalResult, err := s.relationshipService.EvaluateAndUpdate(event.UserID, groupId, userMessage, reply)
+		if err != nil {
+			utils.Error("关系评估失败: %v", err)
+			return
+		}
+
+		// 输出评估结果（调试用）
+		if evalResult.FamiliarityChange != 0 || evalResult.TrustChange != 0 || evalResult.IntimacyChange != 0 {
+			keyMark := ""
+			if evalResult.IsKeyMoment {
+				keyMark = " 🔥"
+			}
+			utils.Debug("关系评估 [QQ=%d]: 熟悉%.1f 信任%.1f 亲密%.1f%s - %s",
+				event.UserID,
+				evalResult.FamiliarityChange,
+				evalResult.TrustChange,
+				evalResult.IntimacyChange,
+				keyMark,
+				evalResult.Reason)
+		}
+	}()
+
 	// 发送回复
 	s.sendReply(event, reply)
 }
 
-// sendReply 发送回复
+// sendReply 发送回复（支持分段）
 func (s *MessageService) sendReply(event *protocol.Event, text string) {
+	// 按 </> 分隔消息
+	parts := strings.Split(text, "</>")
+
+	// 清理空白
+	var messages []string
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			messages = append(messages, part)
+		}
+	}
+
+	if len(messages) == 0 {
+		return
+	}
+
+	// 发送第一条消息（立即发送）
+	s.sendSingleMessage(event, messages[0])
+
+	// 发送后续消息（带延迟）
+	for i := 1; i < len(messages); i++ {
+		delay := s.calculateDelay(messages[i])
+		time.Sleep(delay)
+		s.sendSingleMessage(event, messages[i])
+	}
+}
+
+// sendSingleMessage 发送单条消息
+func (s *MessageService) sendSingleMessage(event *protocol.Event, text string) {
 	var err error
 	var message interface{}
 
@@ -187,6 +244,20 @@ func (s *MessageService) sendReply(event *protocol.Event, text string) {
 
 	if err != nil {
 		utils.Error("发送消息失败: %v", err)
+	}
+}
+
+// calculateDelay 计算发送延迟（模拟打字速度）
+func (s *MessageService) calculateDelay(text string) time.Duration {
+	length := len([]rune(text))
+
+	// 基础延迟最低1秒
+	if length < 10 {
+		return 1 * time.Second
+	} else if length < 30 {
+		return 2 * time.Second
+	} else {
+		return 3 * time.Second
 	}
 }
 

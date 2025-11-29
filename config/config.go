@@ -24,12 +24,11 @@ type NapCatConfig struct {
 
 // AIConfig AI模型配置
 type AIConfig struct {
-	BaseURL      string  `json:"base_url"`      // API基础地址
-	APIKey       string  `json:"api_key"`       // API密钥
-	Model        string  `json:"model"`         // 模型名称
-	MaxTokens    int     `json:"max_tokens"`    // 最大token数
-	Temperature  float64 `json:"temperature"`   // 温度参数
-	SystemPrompt string  `json:"system_prompt"` // 系统提示词
+	BaseURL     string  `json:"base_url"`    // API基础地址
+	APIKey      string  `json:"api_key"`     // API密钥
+	Model       string  `json:"model"`       // 模型名称
+	MaxTokens   int     `json:"max_tokens"`  // 最大token数
+	Temperature float64 `json:"temperature"` // 温度参数
 }
 
 // DatabaseConfig 数据库配置
@@ -76,12 +75,11 @@ func GetDefault() *Config {
 			MessageFormat:     "array",
 		},
 		AI: &AIConfig{
-			BaseURL:      "https://api.deepseek.com",
-			APIKey:       "sk-593692de98614e81baf15878043c30c9",
-			Model:        "deepseek-chat",
-			MaxTokens:    2000,
-			Temperature:  0.7,
-			SystemPrompt: "你是一个友好的AI助手。请用简洁、有用的方式回答问题。",
+			BaseURL:     "https://api.deepseek.com",
+			APIKey:      "sk-593692de98614e81baf15878043c30c9",
+			Model:       "deepseek-chat",
+			MaxTokens:   500,
+			Temperature: 0.95,
 		},
 		Database: &DatabaseConfig{
 			Host:     "localhost",
@@ -102,4 +100,13 @@ func Save(filepath string, cfg *Config) error {
 		return err
 	}
 	return os.WriteFile(filepath, data, 0644)
+}
+
+// LoadSystemPrompt 从文件加载系统提示词
+func LoadSystemPrompt(filepath string) (string, error) {
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
