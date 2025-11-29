@@ -220,7 +220,7 @@ func (e *Evaluator) callAIEvaluator(prompt string) (*EvaluationResult, error) {
 	resp, err := e.client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo,
+			Model: "deepseek-chat", // 使用DeepSeek模型
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleUser,
@@ -228,7 +228,7 @@ func (e *Evaluator) callAIEvaluator(prompt string) (*EvaluationResult, error) {
 				},
 			},
 			MaxTokens:   200,
-			Temperature: 0.3, // 评估用低温度
+			Temperature: 0.5, // 评估用低温度
 		},
 	)
 
